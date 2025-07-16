@@ -237,12 +237,11 @@ class Circuits_Composser():
             
         return obs
 
-    def Qibo_measure_Energy(self, circuits=None):
+    def Qibo_measure_Energy(self):
         
-        if circuits == None:
-            Qibo_circs = self.Qibo_all_circuits()
-        else:
-            Qibo_circs=circuits
+        
+        Qibo_circs = self.Qibo_all_circuits()
+        
             
         E_1=0
         E_2_index=0
