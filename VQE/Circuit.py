@@ -8,6 +8,7 @@ import qililab as ql
 
 from qibo import gates
 from qibo.models.circuit import Circuit
+from qibo.result import MeasurementOutcomes
 
 from VQE.Nucleus import Nucleus
 
@@ -23,10 +24,7 @@ class Circuits_Composser():
                  operators_used: list=[],
                  nshots:int=1000):
         
-        ql.logger.setLevel(40)  # Set qililab's logger to a higher level so it only shows error messages
-
-        self.PLATFORM_PATH = os.getenv("RUNCARD")
-        
+        self.platform = None
         self.nshots = nshots
         nuc = Nucleus(nucleus, n_qubits=n_qubits)
         
@@ -239,15 +237,23 @@ class Circuits_Composser():
 
     def Qibo_measure_Energy(self):
         
-        
+        if self.platform == None:
+            return 'Connect platform'
+            
+        measurements = gates.M(*range(self.n_qubits))
         Qibo_circs = self.Qibo_all_circuits()
         
             
         E_1=0
         E_2_index=0
-        main_circ=Qibo_circs[0][0].copy()
+        main_circ = Qibo_circs[0][0].copy() + measurements
             
-        result = ql.execute(main_circ,self.PLATFORM_PATH, nshots=self.nshots)
+        
+        result = self.platform.execute(main_circ, num_avg = self.nshots)
+        
+        probabilities = result.probabilities()
+            
+        result = MeasurementOutcomes(measurements = measurements, probabilities=probabilities, nshots = self.nshots)
         
         with open ('data.dat', 'w') as f:   
             print('Energy,\t\tobservable,\t\tamplitude\n', file=f)
@@ -283,10 +289,16 @@ class Circuits_Composser():
 
 
             for i in range(1, len(Qibo_circs)):
-                circ=Qibo_circs[i][0].copy()
+                
+                circ = Qibo_circs[i][0].copy() + measurements
 
                 
-                res = ql.execute(circ, self.PLATFORM_PATH, nshots=self.nshots)
+                result = self.platform.execute(circ, num_avg = self.nshots)
+        
+                probabilities = result.probabilities()
+            
+                res = MeasurementOutcomes(measurements = measurements, probabilities=probabilities, nshots = self.nshots)
+                
 
                 if len(Qibo_circs[i]) == 3: #the data structure for the 4 diferent index just has 3 parameters
                     
@@ -386,4 +398,15 @@ class Circuits_Composser():
             
             return Et
 
-    
+
+    def Connect_platform(self):
+        ql.logger.setLevel(40)  
+        
+        PLATFORM_PATH = os.getenv("RUNCARD")
+        self.platform = ql.build_platform(runcard = PLATFORM_PATH)
+        self.platform.connect()
+        self.platform.turn_on_instruments()
+        self.platform.initial_setup()
+        
+    def Disconnect_platform(self):
+        self.platform.disconnect()
